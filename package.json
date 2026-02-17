@@ -1,0 +1,98 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "img-to-r2",
+  "title": "IMG to R2",
+  "description": "Upload clipboard images to Cloudflare R2 and manage uploaded image URLs.",
+  "icon": "extension-icon.png",
+  "author": "nafiul09",
+  "platforms": [
+    "macOS",
+    "Windows"
+  ],
+  "categories": [
+    "Productivity"
+  ],
+  "license": "MIT",
+  "preferences": [
+    {
+      "name": "r2Endpoint",
+      "type": "textfield",
+      "required": false,
+      "title": "R2 Endpoint",
+      "description": "S3-compatible endpoint (e.g. https://<accountid>.r2.cloudflarestorage.com)",
+      "placeholder": "https://<accountid>.r2.cloudflarestorage.com"
+    },
+    {
+      "name": "r2Bucket",
+      "type": "textfield",
+      "required": false,
+      "title": "R2 Bucket",
+      "description": "Cloudflare R2 bucket name"
+    },
+    {
+      "name": "r2AccessKeyId",
+      "type": "textfield",
+      "required": false,
+      "title": "R2 Access Key ID",
+      "description": "Access key ID for your R2 API token credentials"
+    },
+    {
+      "name": "r2SecretAccessKey",
+      "type": "password",
+      "required": false,
+      "title": "R2 Secret Access Key",
+      "description": "Secret access key for your R2 API token credentials"
+    },
+    {
+      "name": "publicBaseUrl",
+      "type": "textfield",
+      "required": false,
+      "title": "Public Base URL",
+      "description": "Public domain used to access uploaded files",
+      "placeholder": "https://img.yourdomain.com"
+    },
+    {
+      "name": "objectPrefix",
+      "type": "textfield",
+      "required": false,
+      "title": "Object Prefix",
+      "description": "Optional prefix/folder before month-year path",
+      "placeholder": "uploads"
+    }
+  ],
+  "commands": [
+    {
+      "name": "upload-clipboard-image",
+      "title": "Upload Clipboard Image to R2",
+      "description": "Upload current clipboard image to R2 and copy URL",
+      "mode": "no-view"
+    },
+    {
+      "name": "images-r2-gallery",
+      "title": "Images R2 Gallery",
+      "description": "Browse uploaded image URLs",
+      "mode": "view"
+    }
+  ],
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.886.0",
+    "@raycast/api": "^1.104.6",
+    "@raycast/utils": "^1.17.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.0.4",
+    "@types/node": "22.13.10",
+    "@types/react": "19.0.10",
+    "eslint": "^9.22.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "prepublishOnly": "echo \"\\n\\nIt seems like you are trying to publish the Raycast extension to npm.\\n\\nIf you did intend to publish it to npm, remove the \\`prepublishOnly\\` script and rerun \\`npm publish\\` again.\\nIf you wanted to publish it to the Raycast Store instead, use \\`npm run publish\\` instead.\\n\\n\" && exit 1",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}
