@@ -1,8 +1,8 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
-  "name": "img-to-r2",
-  "title": "IMG to R2",
-  "description": "Upload clipboard images to Cloudflare R2 and manage uploaded image URLs.",
+  "name": "clipboard-to-cloud",
+  "title": "Clipboard to Cloud (C2C)",
+  "description": "Upload clipboard files to cloud storage and manage local upload history.",
   "icon": "extension-icon.png",
   "author": "nafiul09",
   "platforms": [
@@ -14,6 +14,20 @@
   ],
   "license": "MIT",
   "preferences": [
+    {
+      "name": "cloudProvider",
+      "type": "dropdown",
+      "required": false,
+      "title": "Cloud Provider",
+      "description": "Cloud provider used for uploads",
+      "default": "cloudflare-r2",
+      "data": [
+        {
+          "title": "Cloudflare R2",
+          "value": "cloudflare-r2"
+        }
+      ]
+    },
     {
       "name": "r2Endpoint",
       "type": "textfield",
@@ -52,25 +66,110 @@
       "placeholder": "https://img.yourdomain.com"
     },
     {
-      "name": "objectPrefix",
+      "name": "allowImages",
+      "type": "checkbox",
+      "required": false,
+      "title": "Allowed File Types",
+      "label": "Images",
+      "description": "Allow image file uploads",
+      "default": true
+    },
+    {
+      "name": "allowVideos",
+      "type": "checkbox",
+      "required": false,
+      "title": "",
+      "label": "Videos",
+      "description": "Allow video file uploads",
+      "default": true
+    },
+    {
+      "name": "allowDocuments",
+      "type": "checkbox",
+      "required": false,
+      "title": "",
+      "label": "Documents",
+      "description": "Allow document file uploads",
+      "default": true
+    },
+    {
+      "name": "allowArchives",
+      "type": "checkbox",
+      "required": false,
+      "title": "",
+      "label": "Archives",
+      "description": "Allow archive file uploads",
+      "default": true
+    },
+    {
+      "name": "allowAudios",
+      "type": "checkbox",
+      "required": false,
+      "title": "",
+      "label": "Audios",
+      "description": "Allow audio file uploads",
+      "default": true
+    },
+    {
+      "name": "allowOthers",
+      "type": "checkbox",
+      "required": false,
+      "title": "",
+      "label": "Others",
+      "description": "Allow file uploads outside known categories",
+      "default": true
+    },
+    {
+      "name": "maxUploadSizeMb",
       "type": "textfield",
       "required": false,
-      "title": "Object Prefix",
-      "description": "Optional prefix/folder before month-year path",
-      "placeholder": "uploads"
+      "title": "Max Upload Size (MB)",
+      "description": "Maximum file size accepted for upload",
+      "default": "25",
+      "placeholder": "25"
+    },
+    {
+      "name": "historyLimit",
+      "type": "dropdown",
+      "required": false,
+      "title": "Library History Limit",
+      "description": "Number of local upload history records to keep",
+      "default": "200",
+      "data": [
+        {
+          "title": "50",
+          "value": "50"
+        },
+        {
+          "title": "100",
+          "value": "100"
+        },
+        {
+          "title": "200",
+          "value": "200"
+        },
+        {
+          "title": "500",
+          "value": "500"
+        },
+        {
+          "title": "Unlimited",
+          "value": "unlimited"
+        }
+      ]
     }
   ],
   "commands": [
     {
-      "name": "upload-clipboard-image",
-      "title": "Upload Clipboard Image to R2",
-      "description": "Upload current clipboard image to R2 and copy URL",
+      "name": "upload-clipboard-file",
+      "title": "Upload Clipboard File to Cloud",
+      "description": "Upload current clipboard file to cloud and copy URL",
       "mode": "no-view"
     },
     {
-      "name": "images-r2-gallery",
-      "title": "Images R2 Gallery",
-      "description": "Browse uploaded image URLs",
+      "name": "c2c-file-library",
+      "title": "C2C File Library",
+      "description": "Browse uploaded file URLs",
       "mode": "view"
     }
   ],

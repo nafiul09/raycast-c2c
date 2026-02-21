@@ -1,50 +1,57 @@
-# IMG to R2
+# Clipboard to Cloud (C2C)
 
-Raycast extension for personal use to upload the current clipboard image to Cloudflare R2, copy the public URL, and browse previously uploaded URLs in a local gallery.
+Raycast extension to upload copied files from your clipboard to cloud storage, copy the public URL, and manage local upload history by file category.
 
 ## Features
 
 - Hotkey-friendly `no-view` upload command
-- Uses Raycast extension preferences for R2 configuration
-- Uploads only when clipboard currently contains an image file
-- Copies uploaded image URL to clipboard automatically
-- Local gallery with image previews and keyboard navigation
-- Grid/List toggle persisted in local Raycast storage
-- Settings action inside gallery to open extension preferences anytime
-- Remove individual items or clear entire local gallery history
+- Provider-ready settings with Cloudflare R2 support
+- Upload validation by allowed file categories
+- Max upload size enforcement (MB)
+- Automatic object key routing: `<category>/<mm-yyyy>/<file>`
+- URL copied to clipboard after successful upload
+- Local file library with category filter (`All` + category views)
+- Grid/List toggle persisted in Raycast LocalStorage
+- Remove individual items or clear local library history
 
 ## Setup
 
 1. Install dependencies:
    - `pnpm install`
-2. Open Raycast extension preferences for `IMG to R2` and fill:
+2. Open Raycast extension preferences for `Clipboard to Cloud (C2C)` and configure:
+   - `Cloud Provider` (currently `Cloudflare R2`)
    - `R2 Endpoint` (e.g. `https://<accountid>.r2.cloudflarestorage.com`)
    - `R2 Bucket`
    - `R2 Access Key ID`
    - `R2 Secret Access Key`
-   - `Public Base URL` (your public custom domain)
-   - `Object Prefix` (optional)
+   - `Public Base URL` (custom public domain)
+   - `Allowed File Types` checkboxes
+   - `Max Upload Size (MB)` (default `25`)
+   - `Library History Limit` (`50` / `100` / `200` / `500` / `Unlimited`)
 3. Save preferences.
 
 ## Commands
 
-- `Upload Clipboard Image to R2` (`no-view`):
-  - Checks Raycast preferences and opens extension preferences if missing/invalid
-  - Reads `Clipboard.read()`
-  - Rejects non-image clipboard with toast
-  - Uploads image to R2
-  - Copies resulting URL to clipboard
-  - Stores URL metadata locally
+- `Upload Clipboard File to Cloud` (`no-view`):
+  - Validates extension preferences and file policy
+  - Reads `Clipboard.read()` and accepts either:
+    - copied file path
+    - clipboard text (uploaded as generated `.txt`)
+  - Rejects disallowed category uploads
+  - Rejects files over configured max size
+  - Uploads to Cloudflare R2
+  - Copies resulting public URL
+  - Saves typed upload metadata to local history
 
-- `Images R2 Gallery` (`view`):
-  - Opens extension preferences if required settings are missing
-  - Shows locally stored upload URLs
-  - Supports Grid and List views
-  - Actions: Open Extension Preferences, Copy URL, Open in Browser, Remove from History, Clear Gallery History
+- `C2C File Library` (`view`):
+  - Shows locally stored upload records
+  - Filters by `All`, `Images`, `Videos`, `Documents`, `Archives`, `Audios`, `Others`
+  - Supports List and Grid views (List default)
+  - Actions: Open Preferences, Copy URL, Open in Browser, Remove from History, Clear History
 
 ## Notes
 
-- Gallery stores only metadata (`url`, `key`, `timestamp`) in Raycast LocalStorage.
-- R2 credentials are stored in Raycast extension preferences.
-- No remote listing/import sync in v1.
-- Clearing extension local data removes gallery history.
+- Local history uses `history.v2` schema and starts fresh from previous image-only history.
+- `Others` category includes unknown or extensionless files.
+- Cloud provider abstraction exists in preferences, but only Cloudflare R2 is implemented in this version.
+- The current icon file still fails Raycast lint size validation (not changed in this update).

@@ -30,7 +30,6 @@ export function normalizeConfiguration(configuration: Partial<R2Configuration>):
     r2AccessKeyId: (configuration.r2AccessKeyId ?? "").trim(),
     r2SecretAccessKey: (configuration.r2SecretAccessKey ?? "").trim(),
     publicBaseUrl: (configuration.publicBaseUrl ?? "").trim().replace(/\/+$/, ""),
-    objectPrefix: configuration.objectPrefix?.trim() || undefined,
   };
 }
 

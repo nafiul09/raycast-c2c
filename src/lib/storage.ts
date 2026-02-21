@@ -1,10 +1,10 @@
 import { LocalStorage } from "@raycast/api";
-import type { GalleryViewMode, R2Configuration, UploadHistoryItem } from "../types";
+import type { CloudProvider, FileCategory, GalleryViewMode, UploadHistoryItem } from "../types";
 
-export const HISTORY_STORAGE_KEY = "history.v1";
+export const HISTORY_STORAGE_KEY = "history.v2";
 export const GALLERY_VIEW_STORAGE_KEY = "galleryView.v1";
-export const CONFIG_STORAGE_KEY = "r2Config.v1";
-export const MAX_HISTORY_ITEMS = 200;
+
+type UnknownRecord = Record<string, unknown>;
 
 export type HistoryResult = {
   items: UploadHistoryItem[];
@@ -16,19 +16,35 @@ export type ViewModeResult = {
   malformed: boolean;
 };
 
-export type ConfigResult = {
-  config: R2Configuration | null;
-  malformed: boolean;
-};
+function isCloudProvider(value: unknown): value is CloudProvider {
+  return value === "cloudflare-r2";
+}
+
+function isFileCategory(value: unknown): value is FileCategory {
+  return (
+    value === "images" ||
+    value === "videos" ||
+    value === "documents" ||
+    value === "archives" ||
+    value === "audios" ||
+    value === "others"
+  );
+}
 
 function isUploadHistoryItem(value: unknown): value is UploadHistoryItem {
   if (typeof value !== "object" || value === null) {
     return false;
   }
 
-  const candidate = value as UploadHistoryItem;
+  const candidate = value as UnknownRecord;
   return (
     typeof candidate.id === "string" &&
+    isCloudProvider(candidate.provider) &&
+    isFileCategory(candidate.category) &&
+    typeof candidate.fileName === "string" &&
+    typeof candidate.fileExtension === "string" &&
+    typeof candidate.fileSizeBytes === "number" &&
+    Number.isFinite(candidate.fileSizeBytes) &&
     typeof candidate.key === "string" &&
     typeof candidate.url === "string" &&
     typeof candidate.createdAt === "string"
@@ -47,46 +63,17 @@ function parseHistory(raw: string | undefined): HistoryResult {
     }
 
     const items = parsed.filter(isUploadHistoryItem);
-    const malformed = items.length !== parsed.length;
-
-    return { items, malformed };
+    return { items, malformed: items.length !== parsed.length };
   } catch {
     return { items: [], malformed: true };
   }
 }
 
-function isR2Configuration(value: unknown): value is R2Configuration {
-  if (typeof value !== "object" || value === null) {
-    return false;
+function trimToLimit(items: UploadHistoryItem[], limit: number | null | undefined): UploadHistoryItem[] {
+  if (limit === null || limit === undefined) {
+    return items;
   }
-
-  const candidate = value as R2Configuration;
-  const hasOptionalPrefix = candidate.objectPrefix === undefined || typeof candidate.objectPrefix === "string";
-  return (
-    typeof candidate.r2Endpoint === "string" &&
-    typeof candidate.r2Bucket === "string" &&
-    typeof candidate.r2AccessKeyId === "string" &&
-    typeof candidate.r2SecretAccessKey === "string" &&
-    typeof candidate.publicBaseUrl === "string" &&
-    hasOptionalPrefix
-  );
-}
-
-function parseConfig(raw: string | undefined): ConfigResult {
-  if (!raw) {
-    return { config: null, malformed: false };
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (!isR2Configuration(parsed)) {
-      return { config: null, malformed: true };
-    }
-
-    return { config: parsed, malformed: false };
-  } catch {
-    return { config: null, malformed: true };
-  }
+  return items.slice(0, limit);
 }
 
 export async function getHistory(): Promise<HistoryResult> {
@@ -94,21 +81,20 @@ export async function getHistory(): Promise<HistoryResult> {
   return parseHistory(raw);
 }
 
-export async function setHistory(items: UploadHistoryItem[]): Promise<void> {
-  await LocalStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(items.slice(0, MAX_HISTORY_ITEMS)));
+export async function setHistory(items: UploadHistoryItem[], limit?: number | null): Promise<void> {
+  await LocalStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimToLimit(items, limit)));
 }
 
-export async function prependHistory(item: UploadHistoryItem): Promise<HistoryResult> {
+export async function prependHistory(item: UploadHistoryItem, limit?: number | null): Promise<HistoryResult> {
   const current = await getHistory();
-  const next = [item, ...current.items].slice(0, MAX_HISTORY_ITEMS);
-  await setHistory(next);
+  await setHistory([item, ...current.items], limit);
   return current;
 }
 
-export async function removeHistoryItem(id: string): Promise<void> {
+export async function removeHistoryItem(id: string, limit?: number | null): Promise<void> {
   const current = await getHistory();
   const next = current.items.filter((item) => item.id !== id);
-  await setHistory(next);
+  await setHistory(next, limit);
 }
 
 export async function clearHistory(): Promise<void> {
@@ -119,29 +105,16 @@ export async function getGalleryViewMode(): Promise<ViewModeResult> {
   const raw = await LocalStorage.getItem<string>(GALLERY_VIEW_STORAGE_KEY);
 
   if (!raw) {
-    return { mode: "grid", malformed: false };
+    return { mode: "list", malformed: false };
   }
 
   if (raw === "grid" || raw === "list") {
     return { mode: raw, malformed: false };
   }
 
-  return { mode: "grid", malformed: true };
+  return { mode: "list", malformed: true };
 }
 
 export async function setGalleryViewMode(mode: GalleryViewMode): Promise<void> {
   await LocalStorage.setItem(GALLERY_VIEW_STORAGE_KEY, mode);
-}
-
-export async function getR2Configuration(): Promise<ConfigResult> {
-  const raw = await LocalStorage.getItem<string>(CONFIG_STORAGE_KEY);
-  return parseConfig(raw);
-}
-
-export async function setR2Configuration(config: R2Configuration): Promise<void> {
-  await LocalStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
-}
-
-export async function clearR2Configuration(): Promise<void> {
-  await LocalStorage.removeItem(CONFIG_STORAGE_KEY);
 }
