@@ -3,8 +3,10 @@ import { randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import {
+  detectImageExtensionFromBuffer,
   getCategoryFromExtension,
   getContentTypeFromExtension,
+  getExtensionFromMimeType,
   getFileName,
   getNormalizedExtension,
 } from "./lib/file-types";
@@ -103,6 +105,20 @@ function buildClipboardTextFileName(now = new Date()): string {
   return `clipboard-text-${iso}.txt`;
 }
 
+function extractImageDataUri(raw: string): { mimeType: string; base64: string } | null {
+  const direct = raw.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\n\r]+)$/i);
+  if (direct) {
+    return { mimeType: direct[1], base64: direct[2].replace(/\s+/g, "") };
+  }
+
+  const embedded = raw.match(/data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\n\r]+)/i);
+  if (!embedded) {
+    return null;
+  }
+
+  return { mimeType: embedded[1], base64: embedded[2].replace(/\s+/g, "") };
+}
+
 export default async function Command() {
   const preferences = getPreferenceValues<ExtensionPreferences>();
   const provider = getCloudProvider(preferences.cloudProvider);
@@ -142,11 +158,13 @@ export default async function Command() {
   }
 
   const clipboard = await Clipboard.read();
-  let fileBuffer: Buffer;
-  let fileName: string;
-  let fileSizeBytes: number;
-  let extension: string | undefined;
-  let category: FileCategory;
+  let uploadCandidate: {
+    fileBuffer: Buffer;
+    fileName: string;
+    fileSizeBytes: number;
+    extension: string | undefined;
+    category: FileCategory;
+  } | null = null;
 
   if (clipboard.file?.trim()) {
     const localFilePath = normalizeClipboardFilePath(clipboard.file);
@@ -171,25 +189,80 @@ export default async function Command() {
       return;
     }
 
-    fileBuffer = await readFile(localFilePath);
-    fileName = getFileName(localFilePath);
-    fileSizeBytes = fileStats.size;
-    extension = getNormalizedExtension(localFilePath);
-    category = getCategoryFromExtension(extension);
-  } else if (clipboard.text?.length) {
-    fileBuffer = Buffer.from(clipboard.text, "utf8");
-    fileName = buildClipboardTextFileName();
-    fileSizeBytes = fileBuffer.length;
-    extension = "txt";
-    category = "documents";
+    const fileBuffer = await readFile(localFilePath);
+    const extension = getNormalizedExtension(localFilePath) ?? detectImageExtensionFromBuffer(fileBuffer);
+
+    uploadCandidate = {
+      fileBuffer,
+      fileName: getFileName(localFilePath),
+      fileSizeBytes: fileStats.size,
+      extension,
+      category: getCategoryFromExtension(extension),
+    };
   } else {
+    const possibleDataUriSources = [clipboard.html, clipboard.text].filter((value): value is string => Boolean(value));
+
+    for (const source of possibleDataUriSources) {
+      const extracted = extractImageDataUri(source);
+      if (!extracted) {
+        continue;
+      }
+
+      const inferredExtension = getExtensionFromMimeType(extracted.mimeType);
+      if (!inferredExtension) {
+        continue;
+      }
+
+      try {
+        const decodedBuffer = Buffer.from(extracted.base64, "base64");
+        if (decodedBuffer.length === 0) {
+          continue;
+        }
+
+        uploadCandidate = {
+          fileBuffer: decodedBuffer,
+          fileName: `clipboard-image-${Date.now()}.${inferredExtension}`,
+          fileSizeBytes: decodedBuffer.length,
+          extension: inferredExtension,
+          category: "images",
+        };
+        break;
+      } catch {
+        // ignore invalid base64 sources and continue scanning
+      }
+    }
+
+    if (!uploadCandidate && clipboard.text?.length) {
+      const fileBuffer = Buffer.from(clipboard.text, "utf8");
+      uploadCandidate = {
+        fileBuffer,
+        fileName: buildClipboardTextFileName(),
+        fileSizeBytes: fileBuffer.length,
+        extension: "txt",
+        category: "documents",
+      };
+    }
+
+    if (!uploadCandidate) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Clipboard content not supported",
+        message: "Copy a file, image, or plain text and try again",
+      });
+      return;
+    }
+  }
+
+  if (!uploadCandidate) {
     await showToast({
       style: Toast.Style.Failure,
       title: "Clipboard content not supported",
-      message: "Copy a file or plain text and try again",
+      message: "Copy a file, image, or plain text and try again",
     });
     return;
   }
+
+  const { fileBuffer, fileName, fileSizeBytes, extension, category } = uploadCandidate;
 
   const maxFileSizeBytes = maxUploadSizeMb * 1024 * 1024;
   if (fileSizeBytes > maxFileSizeBytes) {
