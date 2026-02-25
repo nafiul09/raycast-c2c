@@ -66,6 +66,23 @@ const CONTENT_TYPE_MAP: Record<string, string> = {
   aiff: "audio/aiff",
 };
 
+const MIME_EXTENSION_ALIASES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/pjpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/heic": "heic",
+  "image/heif": "heic",
+  "image/bmp": "bmp",
+  "image/x-ms-bmp": "bmp",
+  "image/tiff": "tiff",
+  "image/x-tiff": "tiff",
+  "image/avif": "avif",
+  "image/svg+xml": "svg",
+};
+
 export function getFileName(filePath: string): string {
   return path.basename(filePath);
 }
@@ -99,6 +116,64 @@ export function getContentTypeFromExtension(extension?: string): string {
   }
 
   return CONTENT_TYPE_MAP[extension] ?? "application/octet-stream";
+}
+
+function bytesAt(buffer: Buffer, offset: number, bytes: number[]): boolean {
+  if (buffer.length < offset + bytes.length) {
+    return false;
+  }
+  return bytes.every((byte, index) => buffer[offset + index] === byte);
+}
+
+export function detectImageExtensionFromBuffer(buffer: Buffer): string | undefined {
+  if (bytesAt(buffer, 0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
+    return "png";
+  }
+
+  if (bytesAt(buffer, 0, [0xff, 0xd8, 0xff])) {
+    return "jpg";
+  }
+
+  if (buffer.length >= 6) {
+    const gifHeader = buffer.subarray(0, 6).toString("ascii");
+    if (gifHeader === "GIF87a" || gifHeader === "GIF89a") {
+      return "gif";
+    }
+  }
+
+  if (buffer.length >= 12) {
+    const riffHeader = buffer.subarray(0, 4).toString("ascii");
+    const webpHeader = buffer.subarray(8, 12).toString("ascii");
+    if (riffHeader === "RIFF" && webpHeader === "WEBP") {
+      return "webp";
+    }
+  }
+
+  if (bytesAt(buffer, 0, [0x42, 0x4d])) {
+    return "bmp";
+  }
+
+  if (bytesAt(buffer, 0, [0x49, 0x49, 0x2a, 0x00]) || bytesAt(buffer, 0, [0x4d, 0x4d, 0x00, 0x2a])) {
+    return "tiff";
+  }
+
+  if (buffer.length >= 12 && buffer.subarray(4, 8).toString("ascii") === "ftyp") {
+    const majorBrand = buffer.subarray(8, 12).toString("ascii");
+    const heifBrands = new Set(["heic", "heix", "hevc", "hevx", "heif", "mif1", "msf1"]);
+    if (heifBrands.has(majorBrand)) {
+      return "heic";
+    }
+    if (majorBrand === "avif") {
+      return "avif";
+    }
+  }
+
+  return undefined;
+}
+
+export function getExtensionFromMimeType(mimeType: string): string | undefined {
+  const normalized = mimeType.trim().toLowerCase();
+  return MIME_EXTENSION_ALIASES[normalized];
 }
 
 export function isImageCategory(category: FileCategory): boolean {
